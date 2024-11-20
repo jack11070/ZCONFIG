@@ -72,6 +72,12 @@
      <DOMVALUE_L>GUI</DOMVALUE_L>
      <DDTEXT>統一發票模組</DDTEXT>
     </DD07V>
+    <DD07V>
+     <VALPOS>0011</VALPOS>
+     <DDLANGUAGE>M</DDLANGUAGE>
+     <DOMVALUE_L>HR</DOMVALUE_L>
+     <DDTEXT>人力資源模組</DDTEXT>
+    </DD07V>
    </DD07V_TAB>
   </asx:values>
  </asx:abap>

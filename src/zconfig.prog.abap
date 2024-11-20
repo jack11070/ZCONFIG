@@ -3,7 +3,7 @@
 * Descriptions      : 提供各模組自定義設定的快速路徑
 * Package           : ZCONFIG
 * Reference Tables  : ZCONF_DIR, ZCONF_ITEM
-*
+* How To Use        : 請詳見 Word 使用手冊
 ************************************************************************
 REPORT  zcustom_config.
 ************************************************************************
@@ -12,7 +12,9 @@ REPORT  zcustom_config.
 CLASS lcl_tree_event_receiver DEFINITION.
   PUBLIC SECTION.
     METHODS:
-      handle_tree_link_click FOR EVENT link_click OF cl_gui_column_tree IMPORTING node_key item_name.
+      handle_tree_link_click FOR EVENT link_click
+        OF cl_gui_column_tree
+        IMPORTING node_key item_name.
 ENDCLASS.
 ************************************************************************
 * Types Definitions
@@ -31,13 +33,17 @@ TYPES:BEGIN OF ty_item,
 * Constants Definitions
 ************************************************************************
 CONSTANTS:
+  gc_sm30        TYPE serptype   VALUE 'SM30',
+  gc_sm34        TYPE serptype   VALUE 'SM34',
+  gc_se16        TYPE serptype   VALUE 'SE16',
+  gc_se38        TYPE serptype   VALUE 'SE38',
   gc_cus_conf    TYPE string     VALUE 'CUS_CONF',
   gc_column_btn  TYPE tv_itmname VALUE 'BUTTON',
   gc_column_item TYPE tv_itmname VALUE 'ITEM'.
 ************************************************************************
 * Data Definitions
 ************************************************************************
-DATA: g_module         TYPE string,
+DATA: g_module         TYPE zmodule,
       gt_config        TYPE SORTED TABLE OF ty_item WITH UNIQUE KEY dir_no item_no,
       go_docking_tree  TYPE REF TO cl_gui_docking_container,
       go_tree          TYPE REF TO cl_gui_column_tree,
@@ -79,7 +85,7 @@ AT SELECTION-SCREEN.
 *&---------------------------------------------------------------------*
 *& Form Get_data
 *&---------------------------------------------------------------------*
-*& 透過自定義設定目錄與設定項目表格取得資料
+*& 透過自定義設定目錄(ZCONF_DIR)與設定項目表格(ZCONF_ITEM)取得資料
 *&---------------------------------------------------------------------*
 FORM get_data.
   SELECT
@@ -159,6 +165,7 @@ FORM display_data.
                     text      = &2
                     disabled  = abap_false ) TO lt_items.
   END-OF-DEFINITION.
+  "刪除當前所有樹狀節點
   go_tree->delete_all_nodes( ).
   "新增程式「固定」項目
   macro_append_node gc_cus_conf '' icon_space ''.
@@ -204,12 +211,18 @@ FORM handle_tree_link_click  USING  p_node_key TYPE lvc_nkey
       CHECK strlen( p_node_key ) > 3.
       SPLIT p_node_key AT '-' INTO DATA(lv_dir_no) DATA(lv_item_no).
       READ TABLE gt_config WITH KEY dir_no = lv_dir_no item_no = lv_item_no ASSIGNING FIELD-SYMBOL(<fs_item>).
-      IF <fs_item>-ztype = 'SM30'.
-        PERFORM call_sm30 USING <fs_item>-tabname.
-      ELSEIF <fs_item>-ztype = 'SM34'.
-        PERFORM call_sm34 USING <fs_item>-tabname.
-      ELSEIF <fs_item>-ztype = 'SE16'.
-        PERFORM call_se16 USING <fs_item>-tabname.
+      IF <fs_item>-ztype = gc_sm30.
+        PERFORM check_maintenance USING <fs_item>-tabname.
+        PERFORM call_sm30         USING <fs_item>-tabname.
+      ELSEIF <fs_item>-ztype = gc_sm34.
+        PERFORM check_maintenance_cluster USING <fs_item>-tabname.
+        PERFORM call_sm34         USING <fs_item>-tabname.
+      ELSEIF <fs_item>-ztype = gc_se16.
+        PERFORM check_tables      USING <fs_item>-tabname.
+        PERFORM call_se16         USING <fs_item>-tabname.
+      ELSEIF <fs_item>-ztype = gc_se38.
+        PERFORM check_progname    USING <fs_item>-progname.
+        PERFORM call_se38         USING <fs_item>-progname.
       ELSE.
         PERFORM (<fs_item>-formname) IN PROGRAM (<fs_item>-progname) IF FOUND.
       ENDIF.
@@ -221,7 +234,7 @@ ENDFORM.
 *& 呼叫 SM30 編輯模式（U：編輯｜S：顯示）
 *&---------------------------------------------------------------------*
 FORM call_sm30 USING p_tablename TYPE dd02v-tabname.
-  DATA: l_action TYPE c VALUE 'U'.
+  DATA l_action TYPE c VALUE 'U'.
   IF gt_sel_condition[] IS INITIAL.
     CALL FUNCTION 'VIEW_MAINTENANCE_CALL'
       EXPORTING
@@ -268,30 +281,20 @@ FORM call_se16 USING p_tablename TYPE dd02v-tabname.
 
   CALL FUNCTION 'RS_TABLE_LIST_CREATE'
     EXPORTING
-      table_name                   = p_tablename
-*     ACTION                       = 'ANZE'
-*     WITHOUT_SUBMIT               = ' '
-*     GENERATION_FORCED            =
-*     NEW_SEL                      =
-*     NO_STRUCTURE_CHECK           = ' '
-*     DATA_EXIT                    = ' '
-*   IMPORTING
-*     PROGNAME                     =
-*   TABLES
-*     SELTAB                       =
-*   EXCEPTIONS
-*     TABLE_IS_STRUCTURE           = 1
-*     TABLE_NOT_EXISTS             = 2
-*     DB_NOT_EXISTS                = 3
-*     NO_PERMISSION                = 4
-*     NO_CHANGE_ALLOWED            = 5
-*     TABLE_IS_GTT                 = 6
-*     CDS_VIEW_NOT_SUPPORTED       = 7
-*     OTHERS                       = 8
-            .
+      table_name = p_tablename.
   IF sy-subrc <> 0.
-*   Implement suitable error handling here
+    MESSAGE ID sy-msgid TYPE sy-msgty NUMBER sy-msgno
+          WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4.
   ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form Call_SE38
+*&---------------------------------------------------------------------*
+*& 呼叫 SE38 執行程式
+*&---------------------------------------------------------------------*
+FORM call_se38 USING in_progname TYPE reposrc-progname.
+
+  SUBMIT (in_progname) VIA SELECTION-SCREEN.
 
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -316,22 +319,107 @@ ENDFORM.
 *& 從交易代碼初始化資料
 *&---------------------------------------------------------------------*
 FORM ini_data.
-  refresh = `頁面刷新`.
-  DATA(lv_tcode) = sy-tcode+1.
-  REPLACE FIRST OCCURRENCE OF `CONFIG` IN lv_tcode WITH ''.
-  g_module = lv_tcode.
+  DATA module_name TYPE domvalue_l.
+* 設定當前按鈕之中文說明
+  refresh = '頁面刷新'(b01).
+* 將交易代碼首位數去除，可能是「Z」或「Y」。並將 CONFIG 字樣去除
+  "(1) 必須要是設定於範圍 ZMODULE 的模組代碼才可正常執行
+  "(2) 執行時必須要以交易代碼 ZXXCONFIG 執行，而不可直接執行
+  PERFORM get_module_name CHANGING module_name.
   SELECT SINGLE COUNT( * )
     FROM dd07l
    WHERE domname    = 'ZMODULE'
      AND as4local   = 'A'
-     AND domvalue_l = g_module.
+     AND domvalue_l = module_name.
   IF sy-subrc NE 0.
-    "(1) 必須要是設定於範圍 ZMODULE 的模組代碼才可正常執行
-    "(2) 執行時必須要以交易代碼 ZXXCONFIG 執行，而不可直接執行
     "錯誤訊息：報表 $ 僅能透過表單或交易代碼執行
-    MESSAGE s144(68) WITH sy-repid DISPLAY LIKE 'E'.
-    LEAVE TO SCREEN 0.
+    MESSAGE s144(68) WITH sy-repid DISPLAY LIKE 'E'. LEAVE TO SCREEN 0.
   ELSE.
-    sy-title = |{ g_module }自定義設定|.
+    sy-title = |{ g_module } 自定義設定|.
+    g_module = module_name.
   ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form get_module_name
+*&---------------------------------------------------------------------*
+FORM get_module_name  CHANGING module_name TYPE domvalue_l.
+
+  module_name = sy-tcode+1.
+  REPLACE FIRST OCCURRENCE OF `CONFIG` IN module_name WITH ''.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form check_tables
+*&---------------------------------------------------------------------*
+*& 確認是否為啟用中表格？
+*&---------------------------------------------------------------------*
+FORM check_tables  USING in_tabname TYPE tabname.
+
+  SELECT SINGLE COUNT( * )
+    FROM dd02l
+   WHERE tabname  = @in_tabname
+     AND tabclass = 'TRANSP'
+     AND actflag  <> @space.
+  IF sy-subrc NE 0.
+    "28(151): 表格&1不存在
+    MESSAGE e151(28) WITH in_tabname.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form check_maintenance
+*&---------------------------------------------------------------------*
+*& 確認是否為啟用中維護檢視
+*&---------------------------------------------------------------------*
+FORM check_maintenance  USING in_tabname TYPE tabname.
+
+  DATA vim_name TYPE vim_name.
+
+  vim_name = in_tabname.
+
+  SELECT SINGLE COUNT( * )
+    FROM tvdir
+   WHERE tabname = @vim_name.
+  IF sy-subrc NE 0.
+    "164(SV): 表格 / 檢視 &1 不在字典中
+    MESSAGE e164(sv) WITH in_tabname.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form check_maintenance_cluster
+*&---------------------------------------------------------------------*
+*& 確認是否為啟用中維護檢視叢集
+*&---------------------------------------------------------------------*
+FORM check_maintenance_cluster  USING in_tabname TYPE tabname.
+
+  DATA vcl_name TYPE vcl_name.
+
+  vcl_name = in_tabname.
+
+  SELECT SINGLE COUNT( * )
+    FROM vcldir
+   WHERE vclname = @vcl_name.
+  IF sy-subrc NE 0.
+    "515(SV): 檢視叢集 & 不存在
+    MESSAGE e515(sv) WITH in_tabname.
+  ENDIF.
+
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form check_progname
+*&---------------------------------------------------------------------*
+*& 確認是否存在程式？
+*&---------------------------------------------------------------------*
+FORM check_progname  USING in_progname type progname.
+
+  SELECT SINGLE COUNT( * )
+    FROM reposrc
+   WHERE PROGNAME  = @in_progname
+     AND R3STATE   = 'A'.
+  IF sy-subrc NE 0.
+    "017(DS): 程式 & 不存在
+    MESSAGE e017(DS) WITH in_progname.
+  ENDIF.
+
 ENDFORM.
