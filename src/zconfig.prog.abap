@@ -3,139 +3,138 @@
 * Descriptions      : 提供各模組自定義設定的快速路徑
 * Package           : ZCONFIG
 * Reference Tables  : ZCONF_DIR, ZCONF_ITEM
+*
 ************************************************************************
-REPORT  ZCUSTOM_CONFIG.
+REPORT  zcustom_config.
 ************************************************************************
 * Class Definitions
 ************************************************************************
-CLASS LCL_TREE_EVENT_RECEIVER DEFINITION.
+CLASS lcl_tree_event_receiver DEFINITION.
   PUBLIC SECTION.
     METHODS:
-      HANDLE_TREE_LINK_CLICK FOR EVENT LINK_CLICK OF CL_GUI_COLUMN_TREE IMPORTING NODE_KEY ITEM_NAME.
+      handle_tree_link_click FOR EVENT link_click OF cl_gui_column_tree IMPORTING node_key item_name.
 ENDCLASS.
 ************************************************************************
 * Types Definitions
 ************************************************************************
-TYPES:BEGIN OF TY_ITEM,
-        DIR_NO    TYPE ZCONF_DIR-DIR_NO,
-        DIR_TEXT  TYPE ZCONF_DIR-DIR_TEXT,
-        ITEM_NO   TYPE ZCONF_ITEM-ITEM_NO,
-        ITEM_TEXT TYPE ZCONF_ITEM-ITEM_TEXT,
-        TABNAME   TYPE ZCONF_ITEM-TABNAME,
-        ZTYPE     TYPE ZCONF_ITEM-ZTYPE,
-        PROGNAME  TYPE ZCONF_ITEM-PROGNAME,
-        FORMNAME  TYPE ZCONF_ITEM-FORMNAME,
-      END OF TY_ITEM.
+TYPES:BEGIN OF ty_item,
+        dir_no    TYPE zconf_dir-dir_no,
+        dir_text  TYPE zconf_dir-dir_text,
+        item_no   TYPE zconf_item-item_no,
+        item_text TYPE zconf_item-item_text,
+        tabname   TYPE zconf_item-tabname,
+        ztype     TYPE zconf_item-ztype,
+        progname  TYPE zconf_item-progname,
+        formname  TYPE zconf_item-formname,
+      END OF ty_item.
 ************************************************************************
 * Constants Definitions
 ************************************************************************
 CONSTANTS:
-  GC_ENH_CONF    TYPE STRING VALUE 'ENH_CONF',
-  GC_CUS_CONF    TYPE STRING VALUE 'CUS_CONF',
-  GC_COLUMN_BTN  TYPE TV_ITMNAME VALUE 'BUTTON',
-  GC_COLUMN_ITEM TYPE TV_ITMNAME VALUE 'ITEM'.
+  gc_cus_conf    TYPE string     VALUE 'CUS_CONF',
+  gc_column_btn  TYPE tv_itmname VALUE 'BUTTON',
+  gc_column_item TYPE tv_itmname VALUE 'ITEM'.
 ************************************************************************
 * Data Definitions
 ************************************************************************
-DATA: G_MODULE         TYPE STRING,
-      GT_CONFIG        TYPE SORTED TABLE OF TY_ITEM WITH UNIQUE KEY DIR_NO ITEM_NO,
-      GO_DOCKING_TREE  TYPE REF TO CL_GUI_DOCKING_CONTAINER,
-      GO_TREE          TYPE REF TO CL_GUI_COLUMN_TREE,
-      GO_EVENT_TREE    TYPE REF TO LCL_TREE_EVENT_RECEIVER,
-      GT_SEL_CONDITION TYPE TABLE OF VIMSELLIST WITH HEADER LINE.
+DATA: g_module         TYPE string,
+      gt_config        TYPE SORTED TABLE OF ty_item WITH UNIQUE KEY dir_no item_no,
+      go_docking_tree  TYPE REF TO cl_gui_docking_container,
+      go_tree          TYPE REF TO cl_gui_column_tree,
+      go_event_tree    TYPE REF TO lcl_tree_event_receiver,
+      gt_sel_condition TYPE TABLE OF vimsellist WITH HEADER LINE.
 ************************************************************************
 * Class Implementation
 ************************************************************************
-CLASS LCL_TREE_EVENT_RECEIVER IMPLEMENTATION.
-  METHOD HANDLE_TREE_LINK_CLICK.
-    PERFORM HANDLE_TREE_LINK_CLICK USING NODE_KEY ITEM_NAME.
+CLASS lcl_tree_event_receiver IMPLEMENTATION.
+  METHOD handle_tree_link_click.
+    PERFORM handle_tree_link_click USING node_key item_name.
   ENDMETHOD.
 ENDCLASS.
 ************************************************************************
 *  Selection Screen
 ************************************************************************
-SELECTION-SCREEN PUSHBUTTON 1(20) REFRESH USER-COMMAND REFRESH.
-************************************************************************
-*  Initialization
-************************************************************************
-INITIALIZATION.
-  PERFORM INI_DATA.
-  PERFORM GET_DATA.
+SELECTION-SCREEN PUSHBUTTON 1(20) refresh USER-COMMAND refresh.
 ************************************************************************
 *  At Selection Screen Output
 ************************************************************************
 AT SELECTION-SCREEN OUTPUT.
-  PERFORM EXCLUDE_STD_GUI_STATUS.
-  PERFORM CREATE_TREE.
-  PERFORM DISPLAY_DATA.
+  PERFORM exclude_std_gui_status.
+  PERFORM create_tree.
+  PERFORM display_data.
+************************************************************************
+*  Initialization
+************************************************************************
+INITIALIZATION.
+  PERFORM ini_data.
+  PERFORM get_data.
 ************************************************************************
 *  At Selection Screen
 ************************************************************************
 AT SELECTION-SCREEN.
-  IF SY-UCOMM = 'REFRESH'.
-    PERFORM GET_DATA.
-    PERFORM DISPLAY_DATA.
+  IF sy-ucomm = 'REFRESH'.
+    PERFORM get_data.
+    PERFORM display_data.
   ENDIF.
 *&---------------------------------------------------------------------*
 *& Form Get_data
 *&---------------------------------------------------------------------*
 *& 透過自定義設定目錄與設定項目表格取得資料
 *&---------------------------------------------------------------------*
-FORM GET_DATA.
+FORM get_data.
   SELECT
-    FROM ZCONF_DIR AS DIR
-    LEFT JOIN ZCONF_ITEM AS ITEM
-           ON ITEM~ZMODULE = DIR~ZMODULE
-          AND ITEM~DIR_NO  = DIR~DIR_NO
-    FIELDS DIR~DIR_NO  , DIR~DIR_TEXT, ITEM~ITEM_NO , ITEM~ITEM_TEXT,
-           ITEM~TABNAME, ITEM~ZTYPE  , ITEM~PROGNAME, ITEM~FORMNAME
-  WHERE DIR~ZMODULE = @G_MODULE
-  INTO TABLE @GT_CONFIG.
+    FROM zconf_dir AS dir
+    LEFT JOIN zconf_item AS item ON item~zmodule = dir~zmodule
+                                AND item~dir_no  = dir~dir_no
+    FIELDS dir~dir_no  , dir~dir_text, item~item_no , item~item_text,
+           item~tabname, item~ztype  , item~progname, item~formname
+  WHERE dir~zmodule = @g_module
+  INTO TABLE @gt_config.
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form Create_tree
 *&---------------------------------------------------------------------*
 *& 建立樹狀結構，透過類別 CL_GUI_DOCKING_CONTAINER 建立
 *&---------------------------------------------------------------------*
-FORM CREATE_TREE.
-  DATA: LS_HEADER TYPE TREEV_HHDR,
-        LT_EVENTS TYPE CNTL_SIMPLE_EVENTS.
-  CHECK GO_DOCKING_TREE IS NOT BOUND.
+FORM create_tree.
+  DATA: ls_header TYPE treev_hhdr,
+        lt_events TYPE cntl_simple_events.
+  CHECK go_docking_tree IS NOT BOUND.
   "劃立樹狀結構範圍
-  CREATE OBJECT GO_DOCKING_TREE
+  CREATE OBJECT go_docking_tree
     EXPORTING
-      RATIO = 93
-      SIDE  = CL_GUI_DOCKING_CONTAINER=>DOCK_AT_BOTTOM.
+      ratio = 93
+      side  = cl_gui_docking_container=>dock_at_bottom.
   "建立樹狀結構
-  LS_HEADER-HEADING = |{ G_MODULE }自定義設定|.
-  LS_HEADER-WIDTH = 50.
-  CREATE OBJECT GO_TREE
+  ls_header-heading = |{ g_module } 自定義設定|.
+  ls_header-width = 50.
+  CREATE OBJECT go_tree
     EXPORTING
-      PARENT                = GO_DOCKING_TREE
-      NODE_SELECTION_MODE   = CL_GUI_COLUMN_TREE=>NODE_SEL_MODE_SINGLE
-      ITEM_SELECTION        = ABAP_TRUE
-      HIERARCHY_COLUMN_NAME = GC_COLUMN_ITEM
-      HIERARCHY_HEADER      = LS_HEADER.
+      parent                = go_docking_tree
+      node_selection_mode   = cl_gui_column_tree=>node_sel_mode_single
+      item_selection        = abap_true
+      hierarchy_column_name = gc_column_item
+      hierarchy_header      = ls_header.
   "取得事件並加入事件
-  GO_TREE->GET_REGISTERED_EVENTS( IMPORTING EVENTS = LT_EVENTS ).
-  APPEND VALUE #( EVENTID = CL_GUI_COLUMN_TREE=>EVENTID_LINK_CLICK APPL_EVENT = 'X' ) TO LT_EVENTS.
-  GO_TREE->SET_REGISTERED_EVENTS( EVENTS = LT_EVENTS ).
+  go_tree->get_registered_events( IMPORTING events = lt_events ).
+  APPEND VALUE #( eventid = cl_gui_column_tree=>eventid_link_click appl_event = 'X' ) TO lt_events.
+  go_tree->set_registered_events( events = lt_events ).
   "建立事件處理類別
-  CREATE OBJECT GO_EVENT_TREE.
-  SET HANDLER GO_EVENT_TREE->HANDLE_TREE_LINK_CLICK FOR GO_TREE.
+  CREATE OBJECT go_event_tree.
+  SET HANDLER go_event_tree->handle_tree_link_click FOR go_tree.
   "在樹狀節點中加入按鈕
-  GO_TREE->INSERT_HIERARCHY_COLUMN( NAME =  GC_COLUMN_BTN ).
+  go_tree->insert_hierarchy_column( name =  gc_column_btn ).
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form Display_Data
 *&---------------------------------------------------------------------*
 *& 顯示資料
 *&---------------------------------------------------------------------*
-FORM DISPLAY_DATA.
-  DATA: LT_NODES    TYPE TREEV_NTAB,
-        LT_ITEMS    TYPE STANDARD TABLE OF STREEITM WITH DEFAULT KEY,
-        LV_NODE_KEY TYPE TV_NODEKEY.
-  DEFINE MACRO_APPEND_NODE.
+FORM display_data.
+  DATA: lt_nodes    TYPE treev_ntab,
+        lt_items    TYPE STANDARD TABLE OF streeitm WITH DEFAULT KEY,
+        lv_node_key TYPE tv_nodekey.
+  DEFINE macro_append_node.
     IF &2 IS INITIAL.
       APPEND VALUE #( node_key  = &1
                       n_image   = &3
@@ -148,69 +147,71 @@ FORM DISPLAY_DATA.
                       isfolder  = &4 ) TO lt_nodes.
     ENDIF.
   END-OF-DEFINITION.
-  DEFINE MACRO_APPEND_BTN.
+  DEFINE macro_append_btn.
     APPEND VALUE #( node_key  = &1
                     item_name = gc_column_btn
                     class     = cl_gui_column_tree=>item_class_link
                     t_image   = icon_execute_object ) TO lt_items.
   END-OF-DEFINITION.
-  DEFINE MACRO_APPEND_ITEM.
+  DEFINE macro_append_item.
     APPEND VALUE #( node_key  = &1
                     item_name = gc_column_item
                     text      = &2
-                    disabled  = ABAP_FALSE ) TO lt_items.
+                    disabled  = abap_false ) TO lt_items.
   END-OF-DEFINITION.
-  GO_TREE->DELETE_ALL_NODES( ).
+  go_tree->delete_all_nodes( ).
   "新增程式「固定」項目
-  MACRO_APPEND_NODE GC_CUS_CONF '' ICON_SPACE ''.
-  MACRO_APPEND_BTN  GC_CUS_CONF.
-  MACRO_APPEND_ITEM GC_CUS_CONF '管理自定義設定'.
+  macro_append_node gc_cus_conf '' icon_space ''.
+  macro_append_btn  gc_cus_conf.
+  macro_append_item gc_cus_conf '管理自定義設定'.
   "新增按「交易代碼」項目
-  LOOP AT GT_CONFIG ASSIGNING FIELD-SYMBOL(<FS_ITEM>).
-    AT NEW DIR_NO.
-      MACRO_APPEND_NODE <FS_ITEM>-DIR_NO '' '' 'X'.
-      MACRO_APPEND_ITEM <FS_ITEM>-DIR_NO <FS_ITEM>-DIR_TEXT.
+  LOOP AT gt_config ASSIGNING FIELD-SYMBOL(<fs_item>).
+    AT NEW dir_no.
+      macro_append_node <fs_item>-dir_no '' '' 'X'.
+      macro_append_item <fs_item>-dir_no <fs_item>-dir_text.
     ENDAT.
-    IF <FS_ITEM>-ITEM_NO IS NOT INITIAL OR <FS_ITEM>-ITEM_TEXT IS NOT INITIAL.
-      LV_NODE_KEY = |{ <FS_ITEM>-DIR_NO }-{ <FS_ITEM>-ITEM_NO }|.
-      MACRO_APPEND_NODE LV_NODE_KEY <FS_ITEM>-DIR_NO ICON_SPACE ''.
-      MACRO_APPEND_BTN  LV_NODE_KEY.
-      MACRO_APPEND_ITEM LV_NODE_KEY <FS_ITEM>-ITEM_TEXT.
+    IF <fs_item>-item_no IS NOT INITIAL OR <fs_item>-item_text IS NOT INITIAL.
+      lv_node_key = |{ <fs_item>-dir_no }-{ <fs_item>-item_no }|.
+      macro_append_node lv_node_key <fs_item>-dir_no icon_space ''.
+      macro_append_btn  lv_node_key.
+      macro_append_item lv_node_key <fs_item>-item_text.
     ENDIF.
   ENDLOOP.
-  CALL METHOD GO_TREE->ADD_NODES_AND_ITEMS
+  CALL METHOD go_tree->add_nodes_and_items
     EXPORTING
-      NODE_TABLE                = LT_NODES
-      ITEM_TABLE                = LT_ITEMS
-      ITEM_TABLE_STRUCTURE_NAME = 'STREEITM'
+      node_table                = lt_nodes
+      item_table                = lt_items
+      item_table_structure_name = 'STREEITM'
     EXCEPTIONS
       OTHERS                    = 1.
-  GO_TREE->EXPAND_ROOT_NODES( ).
+  go_tree->expand_root_nodes( ).
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form Handle_Tree_Link_Click
 *&---------------------------------------------------------------------*
 *& 處理樹狀資料點擊事件
 *&---------------------------------------------------------------------*
-FORM HANDLE_TREE_LINK_CLICK  USING  P_NODE_KEY TYPE LVC_NKEY
-                                  P_ITEM_NAME TYPE TV_ITMNAME.
-  CASE P_NODE_KEY.
-    WHEN GC_CUS_CONF.
-      REFRESH GT_SEL_CONDITION.
-      APPEND VALUE #( VIEWFIELD = 'ZMODULE' OPERATOR = 'EQ' VALUE = G_MODULE ) TO GT_SEL_CONDITION.
-      PERFORM CALL_SM34 USING 'ZCONF'.
-      PERFORM GET_DATA.
-      PERFORM DISPLAY_DATA.
+FORM handle_tree_link_click  USING  p_node_key TYPE lvc_nkey
+                                  p_item_name TYPE tv_itmname.
+  CASE p_node_key.
+    WHEN gc_cus_conf.
+      REFRESH gt_sel_condition.
+      APPEND VALUE #( viewfield = 'ZMODULE' operator = 'EQ' value = g_module ) TO gt_sel_condition.
+      PERFORM call_sm34 USING 'ZCONF'.
+      PERFORM get_data.
+      PERFORM display_data.
     WHEN OTHERS.
-      CHECK STRLEN( P_NODE_KEY ) > 3.
-      SPLIT P_NODE_KEY AT '-' INTO DATA(LV_DIR_NO) DATA(LV_ITEM_NO).
-      READ TABLE GT_CONFIG WITH KEY DIR_NO = LV_DIR_NO ITEM_NO = LV_ITEM_NO ASSIGNING FIELD-SYMBOL(<FS_ITEM>).
-      IF <FS_ITEM>-ZTYPE = 'SM30'.
-        PERFORM CALL_SM30 USING <FS_ITEM>-TABNAME.
-      ELSEIF <FS_ITEM>-ZTYPE = 'SM34'.
-        PERFORM CALL_SM34 USING <FS_ITEM>-TABNAME.
+      CHECK strlen( p_node_key ) > 3.
+      SPLIT p_node_key AT '-' INTO DATA(lv_dir_no) DATA(lv_item_no).
+      READ TABLE gt_config WITH KEY dir_no = lv_dir_no item_no = lv_item_no ASSIGNING FIELD-SYMBOL(<fs_item>).
+      IF <fs_item>-ztype = 'SM30'.
+        PERFORM call_sm30 USING <fs_item>-tabname.
+      ELSEIF <fs_item>-ztype = 'SM34'.
+        PERFORM call_sm34 USING <fs_item>-tabname.
+      ELSEIF <fs_item>-ztype = 'SE16'.
+        PERFORM call_se16 USING <fs_item>-tabname.
       ELSE.
-        PERFORM (<FS_ITEM>-FORMNAME) IN PROGRAM (<FS_ITEM>-PROGNAME) IF FOUND.
+        PERFORM (<fs_item>-formname) IN PROGRAM (<fs_item>-progname) IF FOUND.
       ENDIF.
   ENDCASE.
 ENDFORM.
@@ -219,21 +220,21 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *& 呼叫 SM30 編輯模式（U：編輯｜S：顯示）
 *&---------------------------------------------------------------------*
-FORM CALL_SM30 USING P_TABLENAME TYPE DD02V-TABNAME.
-  DATA: L_ACTION TYPE C VALUE 'U'.
-  IF GT_SEL_CONDITION[] IS INITIAL.
+FORM call_sm30 USING p_tablename TYPE dd02v-tabname.
+  DATA: l_action TYPE c VALUE 'U'.
+  IF gt_sel_condition[] IS INITIAL.
     CALL FUNCTION 'VIEW_MAINTENANCE_CALL'
       EXPORTING
-        ACTION    = L_ACTION
-        VIEW_NAME = P_TABLENAME.
+        action    = l_action
+        view_name = p_tablename.
   ELSE.
     CALL FUNCTION 'VIEW_MAINTENANCE_CALL'
       EXPORTING
-        ACTION      = L_ACTION
-        VIEW_NAME   = P_TABLENAME
+        action      = l_action
+        view_name   = p_tablename
       TABLES
-        DBA_SELLIST = GT_SEL_CONDITION[].
-    REFRESH: GT_SEL_CONDITION.
+        dba_sellist = gt_sel_condition[].
+    REFRESH: gt_sel_condition.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -241,61 +242,96 @@ ENDFORM.
 *&---------------------------------------------------------------------*
 *& 呼叫 SM34 編輯模式（U：編輯｜S：顯示）
 *&---------------------------------------------------------------------*
-FORM CALL_SM34 USING P_CLUSTERNAME TYPE VCLDIR-VCLNAME.
-  DATA: L_ACTION TYPE C VALUE 'U'.
-  IF GT_SEL_CONDITION[] IS INITIAL.
+FORM call_sm34 USING p_clustername TYPE vcldir-vclname.
+  DATA: l_action TYPE c VALUE 'U'.
+  IF gt_sel_condition[] IS INITIAL.
     CALL FUNCTION 'VIEWCLUSTER_MAINTENANCE_CALL'
       EXPORTING
-        MAINTENANCE_ACTION = 'U'
-        VIEWCLUSTER_NAME   = P_CLUSTERNAME.
+        maintenance_action = 'U'
+        viewcluster_name   = p_clustername.
   ELSE.
     CALL FUNCTION 'VIEWCLUSTER_MAINTENANCE_CALL'
       EXPORTING
-        MAINTENANCE_ACTION = 'U'
-        VIEWCLUSTER_NAME   = P_CLUSTERNAME
+        maintenance_action = 'U'
+        viewcluster_name   = p_clustername
       TABLES
-        DBA_SELLIST        = GT_SEL_CONDITION[].
-    REFRESH: GT_SEL_CONDITION.
+        dba_sellist        = gt_sel_condition[].
+    REFRESH: gt_sel_condition.
   ENDIF.
+ENDFORM.
+*&---------------------------------------------------------------------*
+*& Form Call_SE16
+*&---------------------------------------------------------------------*
+*& 呼叫 SE16 檢視模式
+*&---------------------------------------------------------------------*
+FORM call_se16 USING p_tablename TYPE dd02v-tabname.
+
+  CALL FUNCTION 'RS_TABLE_LIST_CREATE'
+    EXPORTING
+      table_name                   = p_tablename
+*     ACTION                       = 'ANZE'
+*     WITHOUT_SUBMIT               = ' '
+*     GENERATION_FORCED            =
+*     NEW_SEL                      =
+*     NO_STRUCTURE_CHECK           = ' '
+*     DATA_EXIT                    = ' '
+*   IMPORTING
+*     PROGNAME                     =
+*   TABLES
+*     SELTAB                       =
+*   EXCEPTIONS
+*     TABLE_IS_STRUCTURE           = 1
+*     TABLE_NOT_EXISTS             = 2
+*     DB_NOT_EXISTS                = 3
+*     NO_PERMISSION                = 4
+*     NO_CHANGE_ALLOWED            = 5
+*     TABLE_IS_GTT                 = 6
+*     CDS_VIEW_NOT_SUPPORTED       = 7
+*     OTHERS                       = 8
+            .
+  IF sy-subrc <> 0.
+*   Implement suitable error handling here
+  ENDIF.
+
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form EXCLUDE_STD_GUI_STATUS
 *&---------------------------------------------------------------------*
 *& 清除標準 GUI 狀態：SPOS（儲存）、ONLI（執行）
 *&---------------------------------------------------------------------*
-FORM EXCLUDE_STD_GUI_STATUS.
+FORM exclude_std_gui_status.
   DATA:
-  LT_EXCLUDE  TYPE TABLE OF SY-UCOMM.
-  LT_EXCLUDE = VALUE #( ( 'ONLI' ) ( 'SPOS' ) ).
+  lt_exclude  TYPE TABLE OF sy-ucomm.
+  lt_exclude = VALUE #( ( 'ONLI' ) ( 'SPOS' ) ).
   CALL FUNCTION 'RS_SET_SELSCREEN_STATUS'
     EXPORTING
-      P_STATUS  = SY-PFKEY
-      P_PROGRAM = SY-CPROG
+      p_status  = sy-pfkey
+      p_program = sy-cprog
     TABLES
-      P_EXCLUDE = LT_EXCLUDE.
+      p_exclude = lt_exclude.
 ENDFORM.
 *&---------------------------------------------------------------------*
 *& Form INI_DATA
 *&---------------------------------------------------------------------*
 *& 從交易代碼初始化資料
 *&---------------------------------------------------------------------*
-FORM INI_DATA.
-  REFRESH = `頁面刷新`.
-  DATA(LV_TCODE) = SY-TCODE.
-  REPLACE FIRST OCCURRENCE OF `CONFIG` IN LV_TCODE WITH ''.
-  G_MODULE = LV_TCODE.
+FORM ini_data.
+  refresh = `頁面刷新`.
+  DATA(lv_tcode) = sy-tcode+1.
+  REPLACE FIRST OCCURRENCE OF `CONFIG` IN lv_tcode WITH ''.
+  g_module = lv_tcode.
   SELECT SINGLE COUNT( * )
-    FROM DD07L
-   WHERE DOMNAME    = 'ZMODULE'
-     AND AS4LOCAL   = 'A'
-     AND DOMVALUE_L = G_MODULE.
-  IF SY-SUBRC NE 0.
+    FROM dd07l
+   WHERE domname    = 'ZMODULE'
+     AND as4local   = 'A'
+     AND domvalue_l = g_module.
+  IF sy-subrc NE 0.
     "(1) 必須要是設定於範圍 ZMODULE 的模組代碼才可正常執行
     "(2) 執行時必須要以交易代碼 ZXXCONFIG 執行，而不可直接執行
     "錯誤訊息：報表 $ 僅能透過表單或交易代碼執行
-    MESSAGE S144(68) WITH SY-REPID DISPLAY LIKE 'E'.
+    MESSAGE s144(68) WITH sy-repid DISPLAY LIKE 'E'.
     LEAVE TO SCREEN 0.
   ELSE.
-     SY-TITLE = |{ G_MODULE }自定義設定|.
+    sy-title = |{ g_module }自定義設定|.
   ENDIF.
 ENDFORM.
