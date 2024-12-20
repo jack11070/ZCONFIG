@@ -335,8 +335,8 @@ FORM ini_data.
     "錯誤訊息：報表 $ 僅能透過表單或交易代碼執行
     MESSAGE s144(68) WITH sy-repid DISPLAY LIKE 'E'. LEAVE TO SCREEN 0.
   ELSE.
-    sy-title = |{ g_module } 自定義設定|.
     g_module = module_name.
+    sy-title = |{ g_module } 自定義設定|.
   ENDIF.
 ENDFORM.
 *&---------------------------------------------------------------------*
@@ -359,7 +359,7 @@ FORM check_tables  USING in_tabname TYPE tabname.
     FROM dd02l
    WHERE tabname  = @in_tabname
      AND tabclass = 'TRANSP'
-     AND actflag  <> @space.
+     AND actflag  = @space.
   IF sy-subrc NE 0.
     "28(151): 表格&1不存在
     MESSAGE e151(28) WITH in_tabname.
